@@ -17,102 +17,46 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
 ARE DISCLAIMED. IN NO EVENT SHALL THE OPENBLAS PROJECT OR CONTRIBUTORS BE
-LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *****************************************************************************/
 
-#include "bench.h"
+//#include "bench.h"
+#include <cblas.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
-#undef DOT
+// mlir-clang dot.c -I .. -I /home/lchelini/scratch/polygeist/llvm-project/llvm/../clang/lib/Headers -o dot --emit-llvm
 
-#ifdef DOUBLE
-#define DOT   BLASFUNC(ddot)
-#else
-#define DOT   BLASFUNC(sdot)
-#endif
+int main(int argc, char *argv[]) {
 
-int main(int argc, char *argv[]){
+  float *x, *y;
+  float r;
 
-  FLOAT *x, *y;
-  FLOAT result;
-  blasint m, i;
-  blasint inc_x=1,inc_y=1;
-  int loops = 1;
-  int l;
-  char *p;
+  int inc_x = 1, inc_y = 1;
+    
+  int size = 500;
+  x = (float *)malloc(sizeof(float) * size);
+  y = (float *)malloc(sizeof(float) * size);
+  
 
-  int from =   1;
-  int to   = 200;
-  int step =   1;
-
-  double time1,timeg;
-
-  argc--;argv++;
-
-  if (argc > 0) { from     = atol(*argv);		argc--; argv++;}
-  if (argc > 0) { to       = MAX(atol(*argv), from);	argc--; argv++;}
-  if (argc > 0) { step     = atol(*argv);		argc--; argv++;}
-
-  if ((p = getenv("OPENBLAS_LOOPS")))  loops = atoi(p);
-  if ((p = getenv("OPENBLAS_INCX")))   inc_x = atoi(p);
-  if ((p = getenv("OPENBLAS_INCY")))   inc_y = atoi(p);
-
-  fprintf(stderr, "From : %3d  To : %3d Step = %3d Inc_x = %d Inc_y = %d Loops = %d\n", from, to, step,inc_x,inc_y,loops);
-
-  if (( x = (FLOAT *)malloc(sizeof(FLOAT) * to * abs(inc_x) * COMPSIZE)) == NULL){
-    fprintf(stderr,"Out of Memory!!\n");exit(1);
+  for (int i = 0; i < size; i++) {
+    x[i] = ((float)rand() / (float)RAND_MAX) - 0.5;
   }
 
-  if (( y = (FLOAT *)malloc(sizeof(FLOAT) * to * abs(inc_y) * COMPSIZE)) == NULL){
-    fprintf(stderr,"Out of Memory!!\n");exit(1);
+  for (int i = 0; i < size; i++) {
+    y[i] = ((float)rand() / (float)RAND_MAX) - 0.5;
   }
 
-#ifdef __linux
-  srandom(getpid());
-#endif
-
-  fprintf(stderr, "   SIZE       Flops\n");
-
-  for(m = from; m <= to; m += step)
-  {
-
-   timeg=0;
-
-   fprintf(stderr, " %6d : ", (int)m);
-
-
-   for (l=0; l<loops; l++)
-   {
-
-   	for(i = 0; i < m * COMPSIZE * abs(inc_x); i++){
-			x[i] = ((FLOAT) rand() / (FLOAT) RAND_MAX) - 0.5;
-   	}
-
-   	for(i = 0; i < m * COMPSIZE * abs(inc_y); i++){
-			y[i] = ((FLOAT) rand() / (FLOAT) RAND_MAX) - 0.5;
-   	}
-    	begin();
-
-    	result = DOT (&m, x, &inc_x, y, &inc_y );
-
-    	end();
-	    timeg += getsec();
-
-    }
-
-    timeg /= loops;
-
-    fprintf(stderr,
-	    " %10.2f MFlops %10.6f sec\n",
-	    COMPSIZE * COMPSIZE * 2. * (double)m / timeg * 1.e-6, timeg);
-
-  }
+  #pragma plugin(sdot_, "linalg", "r += x(i) * y(i)")  
+  r = sdot_(&size, x, &inc_x, y, &inc_y);
+  fprintf(stderr, "%.6f\n", result);
 
   return 0;
 }
-
-// void main(int argc, char *argv[]) __attribute__((weak, alias("MAIN__")));
